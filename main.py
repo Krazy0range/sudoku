@@ -1,5 +1,6 @@
 from math import floor
 from time import sleep
+from random import randint
 
 # i:
 # 0 0 0  1 1 1  2 2 2
@@ -30,6 +31,101 @@ from time import sleep
 
 # i = floor(x / 3) + (floor(y / 3) * 3)
 # j = x % 3 + ((y % 3) * 3)
+
+# GENERATE BOARD
+
+def shift_square_down(square, n=1):
+  _square = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  for i in range(9):
+    _i = i - (3 * n)
+    _i %= 9
+    _square[i] = square[_i]
+  return _square
+
+def shift_square_right(square, n=1):
+  _square = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  for i in range(9):
+    _i = ((i % 3) - n) % 3 + (i // 3) * 3
+    _square[i] = square[_i]
+  return _square
+
+def shift_board_squares_down(board, n=1):
+  _board = board.copy()
+  for i in range(9):
+    _board[i] = shift_square_down(_board[i], n)
+  return _board
+
+def shift_board_squares_right(board, n=1):
+  _board = board.copy()
+  for i in range(9):
+    _board[i] = shift_square_right(_board[i], n)
+  return _board
+
+def shift_board(board, x_shift=0, y_shift=0):
+  _board = board.copy()
+
+  for i in range(9):
+    x, y = convert_ij_to_xy(0, i)
+    x = (x - x_shift) % 3
+    y = (y - y_shift) % 3
+    _, _i = convert_xy_to_ij(x, y)
+    _board[_i] = board[i]
+  
+  return _board
+
+def generate_board(board):
+  _board = board.copy()
+  for i in range(9):
+    for j in range(9):
+      _board[i][j] = j + 1
+
+  for i in range(9):
+    down_shifts = i % 3
+    right_shifts = i // 3
+    _board[i] = shift_square_down(_board[i], down_shifts)
+    _board[i] = shift_square_right(_board[i], right_shifts)
+
+  _board = shift_board_squares_down(_board, randint(0, 2))
+  _board = shift_board_squares_right(_board, randint(0, 2))
+  _board = shift_board(_board, randint(0, 3), randint(0, 2))
+
+  # TODO: add logic here for one unique solution
+  #       (makes it possible for automatic_board()
+  #       to solve the board)
+  # TODO: confirm the above claim
+  for i in range(9):
+    for j in range(9):
+      if randint(0, 1) == 0:
+        _board[i][j] = 0
+  
+  return _board
+
+def validate_board(board):
+  for i in range(9):
+    for j in range(9):
+      for n in range(9):
+        check = check_sector(board, i, j, n + 1)
+        if check != 'pass':
+          return False
+  return True
+
+# AUTOMATIC BOARD
+
+def automatic_board(board):
+  _board = board.copy()
+
+  for n in range(1, 10):
+    for i in range(9):
+      possible_squares = []
+      for j in range(9):
+        if _board[i][j] != 0:
+          continue
+        check = check_sector(_board, i, j, n, strict=True)
+        if check == 'pass':
+          possible_squares.append((i, j))
+      if len(possible_squares) == 1:
+        _board[possible_squares[0][0]][possible_squares[0][1]] = n
+  return _board
 
 # HELPER BOARD FUNCTIONS
 
@@ -77,9 +173,9 @@ def get_board_column_ij(board, i, j):
   return column
 
 def get_letter(number):
-  letter = '-'
+  letter = '?'
   
-  if number == -9:
+  if number == 0:
     letter = ' '
   elif number < 0:
     letter = f'\033[31m{str(number)[1]}'
@@ -91,7 +187,7 @@ def get_letter(number):
 # MAIN BOARD FUNCTIONS
 
 def make_board():
-  return [[-9 for _ in range(9)] for _ in range(9)]
+  return [[0 for _ in range(9)] for _ in range(9)]
 
 def print_board(board, error_square = None, error_row = None, error_column = None):
   for y in range(9):
@@ -115,19 +211,19 @@ def print_board(board, error_square = None, error_row = None, error_column = Non
       print(end=f'{color}{letter} \033[0m')
     print()
 
-def check_board(board, i, j, n):
+def check_sector(board, i, j, n, strict=False):
   _board = board.copy()
   
   square = get_board_square_i(_board, i)
-  if n in square:
+  if square.count(n) > 1 or (strict and square.count(n) != 0):
     return 'fail: square'
 
   row = get_board_row_ij(_board, i, j)
-  if n in row:
+  if row.count(n) > 1 or (strict and row.count(n) != 0):
     return 'fail: row'
   
   column = get_board_column_ij(_board, i, j)
-  if n in column:
+  if column.count(n) > 1 or (strict and column.count(n) != 0):
     return 'fail: column'
   
   return 'pass'
@@ -145,10 +241,35 @@ def check_fail(board, i, j, check):
 
   clear()
   print_board(board, error_square, error_row, error_column)
+  print()
   sleep(0.5)
-  clear()
 
 def handle_user(user, board):
+  if user == 'up':
+    return shift_board_squares_down(board, n=-1)
+
+  if user == 'down':
+    return shift_board_squares_down(board)
+  
+  if user == 'right':
+    return shift_board_squares_right(board)
+
+  if user == 'left':
+    return shift_board_squares_right(board, n=-1)
+
+  if user == 'auto':
+    return automatic_board(board)
+  
+  if user == 'regenerate':
+    return generate_board(board)
+  
+  if user == 'validate':
+    validation = validate_board(board)
+    message = 'valid' if validation else 'invalid'
+    print(f'\033[A\r{message}{" " * 20}\r')
+    sleep(0.5)
+    return board
+  
   numbers = user.split()
   
   if len(numbers) != 3:
@@ -165,11 +286,11 @@ def handle_user(user, board):
     return board
   if j < 0 or j > 8:
     return board
-  if n < -9 or n > 8:
+  if n < -9 or n > 9:
     return board
 
-  check = check_board(board, i, j, n)
-  if n > 0 and not check == "pass":
+  check = check_sector(board, i, j, n)
+  if n > 0 and check != "pass":
     check_fail(board, i, j, check)
     return board
 
@@ -180,6 +301,7 @@ def clear():
   print(end=string)
 
 board = make_board()
+board = generate_board(board)
 user = ""
 while not user == "done":
   print_board(board)

@@ -111,6 +111,7 @@ def validate_board(board):
 
 # AUTOMATIC BOARD
 
+# TODO: add row and column checks
 def automatic_board(board):
   _board = board.copy()
 
